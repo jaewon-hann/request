@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());                       // Figma 플러그인 iframe에서 fetch 허용
-app.use(express.json({ limit: "20mb" }));
+app.use(express.json({ limit: "200mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const upload = multer({ storage: multer.memoryStorage() });
