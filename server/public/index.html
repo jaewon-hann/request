@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>제안서 레이아웃 생성기</title>
+  <style>
+    :root { --accent: #635BFF; --ink: #0A2540; --line: #e3e8ee; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      max-width: 720px; margin: 40px auto; padding: 0 20px; color: var(--ink);
+      background: #f6f9fc;
+    }
+    h1 { font-size: 22px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+    label { display: block; font-weight: 600; margin: 16px 0 6px; font-size: 14px; }
+    input[type=text], textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--line);
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .hint { color: #8792a2; font-size: 12px; margin-top: 4px; }
+    button {
+      margin-top: 24px; width: 100%; padding: 12px; border: 0; border-radius: 8px;
+      background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    #result { margin-top: 20px; display: none; }
+    .idbox {
+      background: var(--ink); color: #fff; padding: 16px; border-radius: 8px;
+      font-family: monospace; font-size: 20px; text-align: center; letter-spacing: 2px;
+    }
+    .copy { background: #e3e8ee; color: var(--ink); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>📄 제안서 레이아웃 생성기</h1>
+  <div class="card">
+    <label>제안 보낼 곳</label>
+    <input type="text" id="recipient" placeholder="예: Choose Chicago (Naomi Hattori VP)" />
+
+    <label>제안 내용</label>
+    <textarea id="proposalBody" placeholder="예: Lollapalooza 2026 한국 20-30대 대상 공동마케팅. K-pop 라인업 활용한 2년 인지도→전환 전략..."></textarea>
+
+    <label>목표 추정치</label>
+    <input type="text" id="target" placeholder="예: 예상 GMV 2.4억, CVR 3.2%, 송출 UV 1.5만" />
+
+    <label>추가 정보 (선택)</label>
+    <textarea id="extra" placeholder="브랜드 컬러, 강조하고 싶은 포인트 등"></textarea>
+
+    <label>레퍼런스 제안서 (PDF는 이미지로 변환 후 업로드 · 최대 5장)</label>
+    <input type="file" id="references" accept="image/*" multiple />
+    <div class="hint">이미지의 컬러/타이포/구성 톤을 따라 레이아웃을 만듭니다.</div>
+
+    <button id="gen">레이아웃 생성</button>
+  </div>
+
+  <div id="result" class="card">
+    <label>플러그인에 입력할 생성 ID</label>
+    <div class="idbox" id="genId">—</div>
+    <button class="copy" id="copyBtn">ID 복사</button>
+    <div class="hint">Figma 플러그인을 열고 이 ID를 붙여넣으면 레이아웃이 캔버스에 생성됩니다.</div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    $("gen").addEventListener("click", async () => {
+      const btn = $("gen");
+      btn.disabled = true; btn.textContent = "생성 중...";
+
+      const fd = new FormData();
+      fd.append("recipient", $("recipient").value);
+      fd.append("proposalBody", $("proposalBody").value);
+      fd.append("target", $("target").value);
+      fd.append("extra", $("extra").value);
+      for (const f of $("references").files) fd.append("references", f);
+
+      try {
+        const r = await fetch("/api/generate", { method: "POST", body: fd });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "생성 실패");
+        $("genId").textContent = data.id;
+        $("result").style.display = "block";
+      } catch (e) {
+        alert("오류: " + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = "레이아웃 생성";
+      }
+    });
+
+    $("copyBtn").addEventListener("click", () => {
+      navigator.clipboard.writeText($("genId").textContent.trim());
+      $("copyBtn").textContent = "복사됨 ✓";
+      setTimeout(() => ($("copyBtn").textContent = "ID 복사"), 1500);
+    });
+  </script>
+</body>
+</html>

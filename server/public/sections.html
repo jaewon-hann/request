@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>제안서 ②③ 입력 폼</title>
+<style>
+  :root { --accent:#635BFF; --ink:#0A2540; --line:#e3e8ee; --muted:#8792a2; }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    max-width:780px;margin:32px auto;padding:0 20px;color:var(--ink);background:#f6f9fc;}
+  h1{font-size:22px;} h2{font-size:16px;margin:0 0 4px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:20px;}
+  .tag{display:inline-block;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;}
+  label{display:block;font-weight:600;margin:14px 0 6px;font-size:13px;}
+  input[type=text],input[type=number],textarea,select{width:100%;padding:9px 11px;border:1px solid var(--line);
+    border-radius:8px;font-size:13px;font-family:inherit;}
+  textarea{min-height:64px;resize:vertical;}
+  .hint{color:var(--muted);font-size:12px;margin-top:4px;}
+  .row{display:flex;gap:10px;} .row>*{flex:1;}
+  .cols{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{font-size:12px;background:#eef2f7;border:1px solid var(--line);border-radius:20px;padding:4px 10px;}
+  .serieslist label{display:flex;align-items:center;gap:6px;font-weight:400;margin:6px 0;}
+  .serieslist input{width:auto;}
+  button{margin-top:10px;padding:9px 14px;border:0;border-radius:8px;background:var(--accent);
+    color:#fff;font-size:13px;font-weight:600;cursor:pointer;}
+  button.ghost{background:#eef2f7;color:var(--ink);}
+  .suggestion{background:#f0f4ff;border:1px solid #d6e0ff;border-radius:8px;padding:12px;margin-top:10px;font-size:13px;display:none;}
+  .kpi-out{background:var(--ink);color:#fff;border-radius:8px;padding:14px;margin-top:14px;}
+  .kpi-out b{font-size:20px;}
+  .miniadd{font-size:12px;background:none;color:var(--accent);padding:4px 0;font-weight:600;}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+  td{padding:3px;} .del{color:#c33;cursor:pointer;background:none;border:0;font-size:14px;}
+</style>
+</head>
+<body>
+<h1>📊 제안서 ②③ 입력 폼</h1>
+
+<!-- ================= SECTION 2 ================= -->
+<div class="card">
+  <span class="tag">② 지금까지의 성과</span>
+  <h2>성과 차트 (엑셀 업로드)</h2>
+  <div class="hint">쿼리 결과 엑셀을 올리면 열을 자동으로 읽습니다. 형식은 미리 정하지 않아도 됩니다.</div>
+
+  <label>엑셀 파일 (.xlsx)</label>
+  <input type="file" id="excel" accept=".xlsx,.xls" />
+  <div class="cols" id="detectedCols"></div>
+
+  <div id="mapping" style="display:none;">
+    <label>가로축(시간/항목) 열</label>
+    <select id="axisCol"></select>
+
+    <label>표시할 데이터 계열</label>
+    <div class="serieslist" id="seriesList"></div>
+  </div>
+
+  <label>제안서 작성 목적 (이 문장으로 AI가 강조·차트형태·메시지를 판단)</label>
+  <textarea id="purpose" placeholder="예: 라스베가스 노선의 3월 급성장을 보여주고 싶다 / 프리미엄 4-5성 호텔 비중을 강조하고 싶다"></textarea>
+  <button class="ghost" id="suggestBtn">AI 제안 받기</button>
+
+  <div class="suggestion" id="suggestion"></div>
+
+  <label>강조 대상</label>
+  <select id="emphasis"><option value="">— 계열을 먼저 선택 —</option></select>
+
+  <label>차트 형태</label>
+  <select id="chartType">
+    <option value="stacked">누적 막대 (비중/구성)</option>
+    <option value="line">라인 (성장세/추이)</option>
+    <option value="bar">비교 막대 (순위/비교)</option>
+    <option value="donut">도넛 (점유율)</option>
+  </select>
+
+  <label>차트 위 한 줄 메시지</label>
+  <input type="text" id="chartMsg" placeholder="AI 제안을 받거나 직접 입력" />
+</div>
+
+<!-- ================= SECTION 3 ================= -->
+<div class="card">
+  <span class="tag">③ 플랜 &amp; KPI</span>
+  <h2>재료만 입력하면 표·KPI가 자동 계산됩니다</h2>
+
+  <label>프로모션 기간</label>
+  <input type="text" id="period" placeholder="예: 2026.06 – 2027.05 (1 year)" />
+
+  <div class="row">
+    <div><label>환율 (1 USD = ? KRW)</label><input type="number" id="fx" value="1470" /></div>
+  </div>
+
+  <label>파트너별 예산 (USD)</label>
+  <table id="budgetTbl">
+    <tr><td>파트너</td><td>현금</td><td>인킨드</td><td></td></tr>
+  </table>
+  <button class="miniadd" id="addBudget">+ 파트너 추가</button>
+
+  <label>채널 (노출 수 · CTR)</label>
+  <table id="chTbl">
+    <tr><td>채널</td><td>노출</td><td>CTR %</td><td></td></tr>
+  </table>
+  <button class="miniadd" id="addCh">+ 채널 추가</button>
+
+  <div class="row">
+    <div><label>TNA CVR %</label><input type="number" id="cvrTna" value="12.6" step="0.1" /></div>
+    <div><label>Hotel CVR %</label><input type="number" id="cvrHotel" value="6.3" step="0.1" /></div>
+    <div><label>AI플래너 +%p</label><input type="number" id="uplift" value="2" step="0.1" /></div>
+  </div>
+
+  <div class="kpi-out" id="kpiOut">여기에 계산 결과가 실시간으로 표시됩니다</div>
+</div>
+
+<button id="generate">플러그인용으로 생성 (ID 발급)</button>
+<div class="hint" id="genResult"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let parsed={cols:[],rows:[]};
+
+/* ---------- ② 엑셀 자동 읽기 ---------- */
+$("excel").addEventListener("change", async (e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false});
+  // 첫 번째 '제목처럼 보이는' 행을 헤더로 사용 (숫자 아닌 셀이 여러 개인 행)
+  let hIdx=rows.findIndex(r=>r.filter(c=>typeof c==="string"&&c.trim()).length>=2);
+  if(hIdx<0) hIdx=0;
+  const cols=rows[hIdx].map((c,i)=>({name:String(c||("열"+(i+1))),idx:i}));
+  parsed={cols,rows:rows.slice(hIdx+1)};
+
+  $("detectedCols").innerHTML=cols.map(c=>`<span class="chip">${c.name}</span>`).join("");
+  $("axisCol").innerHTML=cols.map(c=>`<option value="${c.idx}">${c.name}</option>`).join("");
+  $("seriesList").innerHTML=cols.map(c=>
+    `<label><input type="checkbox" class="ser" value="${c.name}" data-idx="${c.idx}" checked>${c.name}</label>`).join("");
+  $("mapping").style.display="block";
+  refreshEmphasis();
+  $("seriesList").querySelectorAll(".ser").forEach(cb=>cb.addEventListener("change",refreshEmphasis));
+});
+
+function refreshEmphasis(){
+  const sel=[...document.querySelectorAll(".ser:checked")].map(c=>c.value);
+  $("emphasis").innerHTML=`<option value="">(강조 없음)</option>`+sel.map(s=>`<option>${s}</option>`).join("");
+}
+
+/* ---------- ② AI 제안 (서버 호출) ---------- */
+$("suggestBtn").addEventListener("click", async ()=>{
+  const purpose=$("purpose").value.trim();
+  if(!purpose){ alert("작성 목적을 먼저 적어주세요."); return; }
+  const cols=parsed.cols.map(c=>c.name);
+  $("suggestBtn").textContent="AI 판단 중...";
+  try{
+    const r=await fetch("/api/suggest",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({purpose,columns:cols})});
+    const s=await r.json();
+    if(!r.ok) throw new Error(s.error||"실패");
+    $("suggestion").style.display="block";
+    $("suggestion").innerHTML=`<b>AI 제안</b><br>강조: ${s.emphasis} · 차트: ${s.chartType}<br>메시지: "${s.message}"`;
+    if(s.emphasis) $("emphasis").value=s.emphasis;
+    if(s.chartType) $("chartType").value=s.chartType;
+    if(s.message) $("chartMsg").value=s.message;
+  }catch(err){ alert("오류: "+err.message+"\n(서버가 켜져 있어야 AI 제안이 동작합니다)"); }
+  $("suggestBtn").textContent="AI 제안 받기";
+});
+
+/* ---------- ③ 예산·채널 표 (동적 행) ---------- */
+function budgetRow(name="",cash="",kind=""){
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td><input type="text" value="${name}" placeholder="Myrealtrip"></td>
+    <td><input type="number" class="bc" value="${cash}"></td>
+    <td><input type="number" class="bk" value="${kind}"></td>
+    <td><button class="del">×</button></td>`;
+  tr.querySelector(".del").onclick=()=>{tr.remove();calc();};
+  tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",calc));
+  return tr;
+}
+function chRow(name="",imp="",ctr=""){
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td><input type="text" value="${name}" placeholder="Naver 검색"></td>
+    <td><input type="number" class="imp" value="${imp}"></td>
+    <td><input type="number" class="ctr" value="${ctr}" step="0.1"></td>
+    <td><button class="del">×</button></td>`;
+  tr.querySelector(".del").onclick=()=>{tr.remove();calc();};
+  tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",calc));
+  return tr;
+}
+$("addBudget").onclick=()=>{$("budgetTbl").appendChild(budgetRow());};
+$("addCh").onclick=()=>{$("chTbl").appendChild(chRow());};
+$("budgetTbl").appendChild(budgetRow("Myrealtrip",0,3700));
+$("budgetTbl").appendChild(budgetRow("Partner",7500,0));
+$("chTbl").appendChild(chRow("Naver 검색",110000,3));
+$("chTbl").appendChild(chRow("Kakao 푸시",5150,3));
+
+/* ---------- ③ 실시간 KPI 계산 (퍼널) ---------- */
+function calc(){
+  const fx=+$("fx").value||0;
+  // 예산
+  let cash=0,kind=0;
+  document.querySelectorAll("#budgetTbl .bc").forEach(i=>cash+=(+i.value||0));
+  document.querySelectorAll("#budgetTbl .bk").forEach(i=>kind+=(+i.value||0));
+  const totUsd=cash+kind;
+  // 퍼널: 노출×CTR = 유입, 유입×CVR = 예약
+  let visitors=0;
+  document.querySelectorAll("#chTbl tr").forEach(tr=>{
+    const imp=+tr.querySelector(".imp")?.value||0;
+    const ctr=+tr.querySelector(".ctr")?.value||0;
+    visitors+=imp*ctr/100;
+  });
+  const cvrT=(+$("cvrTna").value+ +$("uplift").value)/100;
+  const cvrH=(+$("cvrHotel").value+ +$("uplift").value)/100;
+  const resT=Math.round(visitors*cvrT);
+  const resH=Math.round(visitors*cvrH);
+  $("kpiOut").innerHTML=
+    `예상 상세 유입 <b>${Math.round(visitors).toLocaleString()}</b> /월<br>
+     → TNA 예약 <b>${resT.toLocaleString()}</b> · Hotel 예약 <b>${resH.toLocaleString()}</b> /월<br>
+     총 예산 <b>$${totUsd.toLocaleString()}</b> (₩${Math.round(totUsd*fx).toLocaleString()})`;
+}
+document.querySelectorAll("#fx,#cvrTna,#cvrHotel,#uplift").forEach(i=>i.addEventListener("input",calc));
+calc();
+
+/* ---------- 생성 → 플러그인용 ID ---------- */
+$("generate").addEventListener("click", async ()=>{
+  const payload={
+    performance:{
+      axisCol:$("axisCol").value,
+      series:[...document.querySelectorAll(".ser:checked")].map(c=>c.value),
+      emphasis:$("emphasis").value, chartType:$("chartType").value, message:$("chartMsg").value,
+      data:parsed.rows
+    },
+    plan:{ period:$("period").value, fx:+$("fx").value,
+      budget:[...document.querySelectorAll("#budgetTbl tr")].slice(1).map(tr=>({
+        name:tr.querySelector("input[type=text]")?.value,
+        cash:+tr.querySelector(".bc")?.value||0, kind:+tr.querySelector(".bk")?.value||0})),
+      channels:[...document.querySelectorAll("#chTbl tr")].slice(1).map(tr=>({
+        name:tr.querySelector("input[type=text]")?.value,
+        imp:+tr.querySelector(".imp")?.value||0, ctr:+tr.querySelector(".ctr")?.value||0})),
+      cvrTna:+$("cvrTna").value, cvrHotel:+$("cvrHotel").value, uplift:+$("uplift").value }
+  };
+  try{
+    const r=await fetch("/api/generate-sections",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||"실패");
+    $("genResult").textContent="생성 완료 · 플러그인에 입력할 ID: "+d.id;
+  }catch(err){ $("genResult").textContent="오류: "+err.message+" (서버 필요)"; }
+});
+</script>
+</body>
+</html>
