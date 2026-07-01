@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -18,6 +19,11 @@ const upload = multer({ storage: multer.memoryStorage() });
 // AI 키가 없어도 서버는 켜진다 (프레임 저장/불러오기 테스트용). /api/generate만 키 필요.
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
+// Supabase 연결 (영구 저장). 환경변수 없으면 메모리로 폴백(로컬 테스트용).
+const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY)
   : null;
 
 // ── 생성 결과 저장소 (데모용 인메모리. 운영은 Supabase/Redis 등 권장) ──
@@ -147,27 +153,55 @@ app.get("/api/layout/:id", (req, res) => {
 });
 
 // ── 고정 섹션 프레임 저장소 (마스터 → 서버 → 사용자 파일) ──
+// Supabase가 연결돼 있으면 영구 저장, 아니면 메모리(폴백).
 const frameStore = new Map();
 
 // 마스터에서 직렬화한 프레임 저장 (이름 = ID로 사용, 없으면 랜덤)
-app.post("/api/frames", (req, res) => {
-  const { name, frames } = req.body;
-  if (!frames) return res.status(400).json({ error: "frames가 없습니다" });
-  const id = (name || randomUUID().slice(0, 8)).replace(/\s+/g, "-");
-  frameStore.set(id, { frames, savedAt: Date.now() });
-  res.json({ id });
+app.post("/api/frames", async (req, res) => {
+  try {
+    const { name, frames } = req.body;
+    if (!frames) return res.status(400).json({ error: "frames가 없습니다" });
+    const id = (name || randomUUID().slice(0, 8)).replace(/\s+/g, "-");
+    if (supabase) {
+      const { error } = await supabase.from("sections").upsert({ id, frames });
+      if (error) return res.status(500).json({ error: error.message });
+    } else {
+      frameStore.set(id, { frames, savedAt: Date.now() });
+    }
+    res.json({ id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 사용자 파일에서 ID로 프레임 가져가기
-app.get("/api/frames/:id", (req, res) => {
-  const rec = frameStore.get(req.params.id);
-  if (!rec) return res.status(404).json({ error: "해당 ID의 섹션이 없습니다" });
-  res.json({ frames: rec.frames });
+app.get("/api/frames/:id", async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from("sections").select("frames").eq("id", req.params.id).single();
+      if (error || !data) return res.status(404).json({ error: "해당 ID의 섹션이 없습니다" });
+      return res.json({ frames: data.frames });
+    }
+    const rec = frameStore.get(req.params.id);
+    if (!rec) return res.status(404).json({ error: "해당 ID의 섹션이 없습니다" });
+    res.json({ frames: rec.frames });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 저장된 고정 섹션 목록 (웹 폼에서 체크리스트로 쓸 수 있음)
-app.get("/api/frames", (req, res) => {
-  res.json({ sections: [...frameStore.keys()] });
+app.get("/api/frames", async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase.from("sections").select("id").order("saved_at", { ascending: false });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ sections: data.map((r) => r.id) });
+    }
+    res.json({ sections: [...frameStore.keys()] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
